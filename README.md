@@ -1,8 +1,4 @@
-# Aplicação do Teorema Mestre à Análise de Algoritmos Recursivos
-
-Trabalho em grupo da disciplina de Análise de Algoritmos. Três algoritmos
-recursivos, um para cada caso do Teorema Mestre, com análise teórica,
-demonstração por indução e validação experimental.
+# Aplicação do Teorema Mestre à Análise de Algoritmos
 
 | | Algoritmo | Recorrência | a | b | f(n) | Caso | Complexidade |
 |---|---|---|---|---|---|---|---|
