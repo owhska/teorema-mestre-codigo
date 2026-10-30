@@ -1,0 +1,783 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{times}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listingsutf8}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{array}
+
+\captionsetup{font=small,labelfont={small,bf},textfont=it,labelsep=colon}
+\renewcommand{\lstlistingname}{Listing}
+\setlength{\parskip}{0.2em}
+
+\definecolor{fundocod}{HTML}{F5F5F5}
+\lstset{
+  language=C, basicstyle=\ttfamily\scriptsize, numbers=left, numberstyle=\tiny,
+  numbersep=6pt, backgroundcolor=\color{fundocod}, frame=single, rulecolor=\color{black!20},
+  breaklines=true, showstringspaces=false, tabsize=4, columns=fullflexible, keepspaces=true,
+  extendedchars=true, inputencoding=utf8/latin1,
+  literate=%
+    {á}{{\'a}}1 {à}{{\`a}}1 {â}{{\^a}}1 {ã}{{\~a}}1 {ä}{{\"a}}1
+    {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ô}{{\^o}}1
+    {õ}{{\~o}}1 {ú}{{\'u}}1 {ü}{{\"u}}1 {ç}{{\c c}}1
+    {Á}{{\'A}}1 {À}{{\`A}}1 {Â}{{\^A}}1 {Ã}{{\~A}}1
+    {É}{{\'E}}1 {Ê}{{\^E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ô}{{\^O}}1
+    {Õ}{{\~O}}1 {Ú}{{\'U}}1 {Ç}{{\c C}}1 {º}{{\textordmasculine}}1
+    {ª}{{\textordfeminine}}1 {°}{{$^\circ$}}1
+    {—}{{\textemdash}}1 {–}{{\textendash}}1 {“}{{``}}1 {”}{{''}}1,
+}
+\lstdefinestyle{cmd}{language={}, numbers=none, basicstyle=\ttfamily\scriptsize}
+
+\newtheorem{proposicao}{Proposição}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\LARGE\bfseries Aplicação do Teorema Mestre\\[0.3em] à Análise de Algoritmos Recursivos\par}
+\vspace{0.8cm}
+{\large Três problemas, um para cada caso do teorema: análise teórica, demonstração por indução e validação experimental\par}
+\vspace{3cm}
+{\large Autores: Vitor Kenzo Matsunaga, Gustavo Alves, Matheus Brunes\par}
+\vspace{0.4cm}
+{\large Disciplina: Análise de Algoritmos\par}
+\vspace{0.4cm}
+{\large Professor: Zoe Roberto\par}
+\vfill
+{Outubro de 2026\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Introdução}
+
+Este trabalho aplica o Teorema Mestre à análise de três algoritmos recursivos distintos, escolhidos de modo que cada um se enquadre em um caso diferente do teorema, valida os resultados obtidos por demonstração matemática e os confronta com medições experimentais.
+
+Os objetivos são:
+
+\begin{enumerate}[itemsep=1pt]
+  \item escolher três recorrências do tipo $T(n)=a\,T(n/b)+f(n)$ que se enquadrem, respectivamente, nos Casos 1, 2 e 3 do Teorema Mestre, com $a\neq2$ nos dois primeiros e $a\neq b$ em pelo menos um deles;
+  \item implementar, em linguagem C, uma solução recursiva para cada problema, instrumentada com um contador de operações elementares e capaz de executar para diferentes tamanhos de entrada, registrando todos os experimentos em um único arquivo CSV;
+  \item realizar a análise teórica de cada recorrência, identificando $a$, $b$ e $f(n)$, calculando $n^{\log_b a}$, enquadrando a recorrência no caso correto e determinando a complexidade assintótica em notação $\Theta$;
+  \item demonstrar formalmente, por indução matemática, a forma fechada de cada recorrência, verificando que o resultado coincide com o previsto pelo Teorema Mestre;
+  \item comparar as previsões teóricas com os dados experimentais, por meio de tabelas e gráficos, e discutir as convergências e divergências observadas.
+\end{enumerate}
+
+Os três problemas escolhidos são apresentados na Tabela~\ref{tab:escolhas}.
+
+\begin{table}[H]
+\centering
+\caption{Os três problemas analisados e o enquadramento de cada um.}
+\label{tab:escolhas}
+\small
+\begin{tabular}{llcccl}
+\toprule
+ & Algoritmo & $a$ & $b$ & $f(n)$ & Caso e complexidade \\
+\midrule
+Problema 1 & Karatsuba (produto de polinômios) & 3 & 2 & $\Theta(n)$ & Caso 1 --- $\Theta(n^{\log_2 3})$ \\
+Problema 2 & MergeSort ternário & 3 & 3 & $\Theta(n)$ & Caso 2 --- $\Theta(n\lg n)$ \\
+Problema 3 & Par mais próximo em 1D & 2 & 2 & $\Theta(n^2)$ & Caso 3 --- $\Theta(n^2)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+As restrições do enunciado são atendidas: nos Problemas 1 e 2 tem-se $a=3\neq2$, e no Problema 1 ocorre $a=3\neq b=2$. Os três problemas são distintos entre si e todos admitem implementação recursiva direta em C.
+
+Adianta-se o resultado principal: nas 37 execuções registradas, o número de operações elementares medido coincidiu \emph{exatamente} com a forma fechada demonstrada por indução para os três problemas, sem nenhuma diferença, e as taxas de crescimento medidas convergiram para os valores previstos pelo Teorema Mestre.
+
+\section{Revisão Teórica}
+
+\subsection{O Teorema Mestre}
+
+O Teorema Mestre fornece a solução assintótica de recorrências da forma
+\begin{equation}
+T(n)=a\,T\!\left(\frac nb\right)+f(n),
+\label{eq:mestre}
+\end{equation}
+com $a\ge1$ e $b>1$ constantes e $f(n)$ uma função assintoticamente positiva. A recorrência descreve um algoritmo de divisão e conquista que quebra um problema de tamanho $n$ em $a$ subproblemas de tamanho $n/b$, resolve cada um recursivamente e gasta $f(n)$ para dividir o problema e combinar as soluções parciais.
+
+A comparação decisiva é entre $f(n)$, o custo fora da recursão, e a função
+\[
+n^{\log_b a},
+\]
+que mede o custo acumulado nas folhas da árvore de recursão. De fato, a árvore tem $\log_b n$ níveis e, no nível $i$, há $a^i$ subproblemas de tamanho $n/b^i$; no último nível há $a^{\log_b n}=n^{\log_b a}$ folhas. O teorema distingue três situações, conforme qual dos dois custos domina.
+
+\subsection{Os três casos}
+
+\textbf{Caso 1 --- as folhas dominam.} Se $f(n)=O\!\left(n^{\log_b a-\varepsilon}\right)$ para alguma constante $\varepsilon>0$, então
+\[
+T(n)=\Theta\!\left(n^{\log_b a}\right).
+\]
+O custo de dividir e combinar é polinomialmente menor que o custo das folhas; o trabalho cresce a cada nível descido na árvore, e o somatório é dominado pelo último nível.
+
+\textbf{Caso 2 --- todos os níveis custam o mesmo.} Se $f(n)=\Theta\!\left(n^{\log_b a}\right)$, então
+\[
+T(n)=\Theta\!\left(n^{\log_b a}\lg n\right).
+\]
+Cada um dos $\Theta(\lg n)$ níveis da árvore contribui com o mesmo custo $\Theta\!\left(n^{\log_b a}\right)$, e daí o fator logarítmico adicional.
+
+\textbf{Caso 3 --- a raiz domina.} Se $f(n)=\Omega\!\left(n^{\log_b a+\varepsilon}\right)$ para alguma constante $\varepsilon>0$, e se além disso vale a \emph{condição de regularidade}
+\begin{equation}
+a\,f\!\left(\frac nb\right)\le c\,f(n)\quad\text{para alguma constante }c<1\text{ e todo }n\text{ suficientemente grande},
+\label{eq:regularidade}
+\end{equation}
+então
+\[
+T(n)=\Theta\big(f(n)\big).
+\]
+O custo de dividir e combinar é polinomialmente maior que o das folhas, e a condição de regularidade garante que esse custo decresce geometricamente a cada nível, de modo que a soma é dominada pela raiz.
+
+\subsection{Observações sobre a aplicação}
+
+Duas ressalvas são relevantes para este trabalho. Primeiro, o teorema não cobre todos os casos possíveis: existem lacunas entre os casos, quando $f(n)$ é menor que $n^{\log_b a}$ mas não \emph{polinomialmente} menor (por exemplo $f(n)=n^{\log_b a}/\lg n$), e nelas o teorema não se aplica. Segundo, a forma~\eqref{eq:mestre} ignora os pisos e tetos que surgem quando $n$ não é divisível por $b$; demonstra-se que isso não altera o resultado assintótico, e neste trabalho a questão foi contornada escolhendo tamanhos de entrada que são potências exatas de $b$ nos Problemas 1 e 2, e obtendo uma forma fechada válida para todo $n$ no Problema 3.
+
+Por fim, o Teorema Mestre fornece apenas a \emph{classe} assintótica. As demonstrações por indução da Seção~\ref{sec:teorica} vão além e estabelecem a forma fechada exata de cada recorrência, o que permite comparar teoria e experimento número a número, e não apenas por ordem de grandeza.
+
+\section{Metodologia}
+
+\subsection{Objetivo}
+
+O objetivo geral é verificar, de forma teórica e experimental, que a complexidade prevista pelo Teorema Mestre descreve o comportamento real de implementações recursivas. Os objetivos específicos são:
+
+\begin{itemize}[itemsep=1pt]
+  \item \textbf{Problema 1:} verificar que a multiplicação de polinômios por Karatsuba, com recorrência enquadrada no Caso 1, tem custo $\Theta(n^{\log_2 3})$, e observar a partir de que tamanho ela supera o método direto $\Theta(n^2)$;
+  \item \textbf{Problema 2:} verificar que o MergeSort ternário, enquadrado no Caso 2, tem custo $\Theta(n\lg n)$, e isolar experimentalmente o fator logarítmico;
+  \item \textbf{Problema 3:} verificar que o algoritmo do par mais próximo com combinação por força bruta, enquadrado no Caso 3, tem custo $\Theta(n^2)$, ou seja, que o custo da combinação domina o das chamadas recursivas.
+\end{itemize}
+
+\subsection{Ferramentas utilizadas}
+
+\begin{description}[leftmargin=1.2cm,style=nextline,itemsep=2pt]
+  \item[Implementação] Linguagem C, padrão C99, compilada com GCC 13.3.0 e as opções \texttt{-O2 -Wall -Wextra -std=c99}.
+  \item[Medição de desempenho] Duas grandezas foram medidas. A primeira é um \textbf{contador de operações elementares}, uma variável global incrementada exatamente uma vez por operação elementar; a definição da operação elementar é dada no início de cada problema. A segunda é o \textbf{tempo de parede}, obtido por \texttt{clock\_gettime(CLOCK\_MONOTONIC)} em Linux e \texttt{QueryPerformanceCounter} em Windows, ambos relógios monotônicos de alta resolução.
+  \item[Registro dos dados] Um único arquivo CSV, \texttt{resultados/resultados.csv}, recebe uma linha por execução, com o número do problema, o algoritmo, a recorrência, o tamanho da entrada, as operações contadas, o valor previsto pela forma fechada, a diferença entre os dois, o tempo mediano e o número de repetições.
+  \item[Análise, tabelas e gráficos] Python 3.13 com \texttt{pandas} 3.0 (leitura e agregação dos dados), \texttt{numpy} 2.5 (ajustes por mínimos quadrados) e \texttt{matplotlib} 3.11 (geração dos gráficos). As tabelas deste relatório foram geradas automaticamente a partir do mesmo CSV.
+  \item[Ambiente] Linux x86-64, processador Intel Xeon de 2,10\,GHz.
+\end{description}
+
+\subsection{Métodos}
+
+\textbf{Coleta dos dados.} Para cada problema, o programa executa o algoritmo em uma sequência crescente de tamanhos de entrada: potências de 2 de $2$ a $4.096$ no Problema 1, potências de 3 de $3$ a $531.441$ no Problema 2 e potências de 2 de $2$ a $8.192$ no Problema 3. Em cada tamanho, a execução é repetida 15 vezes, e registra-se o \emph{tempo mediano} dessas repetições. As entradas são geradas por um gerador congruencial linear próprio, com semente fixa, de modo que os mesmos dados sejam produzidos em qualquer máquina ou compilador. O contador de operações é zerado antes de cada execução.
+
+\textbf{Análise.} Para cada tamanho, compara-se o valor do contador com o valor previsto pela forma fechada demonstrada na Seção~\ref{sec:teorica}; a diferença entre os dois é registrada no CSV. Para verificar a classe assintótica, usam-se duas grandezas independentes da constante multiplicativa: a \textbf{razão de crescimento} $T(bn)/T(n)$, que deve convergir para $a$, e a \textbf{inclinação do ajuste log-log}, que deve convergir para o expoente $\log_b a$ previsto. As mesmas grandezas são calculadas sobre os tempos medidos.
+
+\subsection{Justificativa das escolhas}
+
+A contagem de operações elementares é o instrumento central deste trabalho, e a escolha é deliberada. O Teorema Mestre é um resultado sobre o \emph{número de operações} de um algoritmo, não sobre o tempo de relógio: ele raciocina em um modelo de custo uniforme, em que toda operação elementar custa o mesmo. Um contador mede exatamente essa grandeza, e por isso permite uma comparação sem erro de medição, enquanto o tempo está sujeito a escalonamento de processos, hierarquia de memória e variação de frequência do processador. Além disso, as operações elementares foram definidas, nos três problemas, de modo a não dependerem dos \emph{valores} da entrada, apenas do seu tamanho, o que torna cada medição determinística e reprodutível.
+
+O tempo de parede não foi abandonado, porém: ele é a grandeza que realmente interessa na prática, e é justamente a comparação entre as duas que revela onde o modelo teórico se afasta da máquina real (Seção~\ref{sec:custo_op}). O uso da mediana de 15 repetições, em vez da média, reduz o efeito de execuções atípicas causadas por interferência do sistema operacional.
+
+A escolha de tamanhos que são potências exatas de $b$ nos Problemas 1 e 2 elimina os pisos e tetos das recorrências, permitindo uma forma fechada exata e uma demonstração por indução limpa. Os intervalos de tamanho foram escolhidos de modo que o maior caso de cada problema leve dezenas de milissegundos, tempo suficiente para que a medição seja confiável sem que a bateria completa se torne demorada.
+
+\subsection{Limitações e fraquezas da metodologia}
+
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{O modelo de custo uniforme não vale na máquina real.} O Teorema Mestre supõe que toda operação elementar custa o mesmo, mas o custo real de um acesso à memória depende de o dado estar ou não em \emph{cache}. Isso é visível nos dados (Seção~\ref{sec:custo_op}) e é a principal causa das divergências entre a curva de operações e a de tempo.
+  \item \textbf{Operações não contabilizadas.} O contador registra apenas as operações elementares definidas. Chamadas de função, alocações com \texttt{malloc} e \texttt{free}, cópias de memória e aritmética de índices não são contadas, embora consumam tempo. No Problema 1, em particular, cada chamada recursiva faz cinco alocações, o que pesa no tempo mas não no contador.
+  \item \textbf{Ruído de medição em entradas pequenas.} Para os menores tamanhos, o tempo de execução é da ordem de dezenas de nanossegundos, comparável à própria resolução e ao custo da chamada ao relógio. Por isso, os ajustes de inclinação sobre os tempos foram calculados apenas sobre os pontos maiores.
+  \item \textbf{Efeito do compilador.} Com \texttt{-O2}, o GCC pode vetorizar laços, eliminar código redundante ou converter recursões de cauda em laços. Isso altera o tempo medido, mas não o número de operações contadas, o que é mais um argumento a favor do contador como instrumento principal.
+  \item \textbf{Faixa limitada de tamanhos.} Os maiores tamanhos foram limitados pela memória e pelo tempo de execução, especialmente no Problema 3, cujo custo quadrático torna proibitivo ir muito além de $n=8.192$. As conclusões assintóticas são, portanto, uma extrapolação a partir de uma faixa finita.
+  \item \textbf{Validade restrita das formas fechadas exatas.} Nos Problemas 1 e 2, as formas fechadas demonstradas valem para $n$ potência exata de $b$; para outros valores de $n$, valem a recorrência com pisos e tetos e a classe assintótica, mas não a fórmula exata. No Problema 3, a forma fechada vale para todo $n\ge1$.
+\end{itemize}
+
+\section{Análise Teórica}
+\label{sec:teorica}
+
+\subsection{Problema 1 --- Caso 1: multiplicação de polinômios por Karatsuba}
+
+\subsubsection{Descrição do problema}
+
+Dados dois polinômios de $n$ coeficientes cada,
+\[
+P(x)=\sum_{i=0}^{n-1}p_i x^i,\qquad Q(x)=\sum_{i=0}^{n-1}q_i x^i,
+\]
+deseja-se calcular o produto $P(x)\,Q(x)$, que tem $2n-1$ coeficientes. O método direto calcula cada produto $p_i q_j$, o que custa $\Theta(n^2)$.
+
+O algoritmo de Karatsuba divide cada polinômio ao meio, com $m=n/2$:
+\[
+P=P_0+P_1x^m,\qquad Q=Q_0+Q_1x^m,
+\]
+em que $P_0,P_1,Q_0,Q_1$ têm $m$ coeficientes. O produto seria, ingenuamente,
+\[
+PQ=P_0Q_0+(P_0Q_1+P_1Q_0)x^m+P_1Q_1x^{2m},
+\]
+o que exigiria quatro multiplicações de tamanho $m$. A observação de Karatsuba é que o termo do meio pode ser obtido a partir de um único produto adicional:
+\[
+P_0Q_1+P_1Q_0=(P_0+P_1)(Q_0+Q_1)-P_0Q_0-P_1Q_1.
+\]
+São necessárias, portanto, apenas \emph{três} multiplicações de tamanho $m$:
+\[
+z_0=P_0Q_0,\qquad z_2=P_1Q_1,\qquad z_1=(P_0+P_1)(Q_0+Q_1)-z_0-z_2,
+\]
+e o produto é $PQ=z_0+z_1x^m+z_2x^{2m}$.
+
+\textbf{Operação elementar contada:} cada soma, subtração ou multiplicação de coeficientes. Cópias de memória não são contadas. A contagem independe dos valores dos coeficientes.
+
+\subsubsection{A recorrência analisada}
+
+Com $m=n/2$, o trabalho fora das chamadas recursivas é: $m$ somas para obter $P_0+P_1$ e $m$ para $Q_0+Q_1$; $2(2m-1)$ subtrações para $z_1=(P_0+P_1)(Q_0+Q_1)-z_0-z_2$; e $3(2m-1)$ somas para acumular $z_0$, $z_1$ e $z_2$ nas posições corretas do resultado. O total é
+\[
+2m+2(2m-1)+3(2m-1)=12m-5=6n-5.
+\]
+No caso base, $n=1$, há uma única multiplicação. A recorrência é, portanto,
+\begin{equation}
+T(1)=1,\qquad T(n)=3\,T\!\left(\frac n2\right)+6n-5\quad\text{para }n\ge2.
+\label{eq:rec1}
+\end{equation}
+
+\subsubsection{Valores de $a$, $b$ e $f(n)$, e cálculo de $n^{\log_b a}$}
+
+\[
+a=3,\qquad b=2,\qquad f(n)=6n-5=\Theta(n).
+\]
+\[
+n^{\log_b a}=n^{\log_2 3},\qquad \log_2 3=\frac{\ln 3}{\ln 2}\approx1{,}584963,
+\]
+ou seja, $n^{\log_2 3}\approx n^{1{,}5850}$.
+
+Note que $a=3\neq2$ e $a=3\neq b=2$, o que atende às duas restrições do enunciado.
+
+\subsubsection{Enquadramento e justificativa}
+
+Compara-se $f(n)=\Theta(n)=\Theta(n^1)$ com $n^{\log_2 3}\approx n^{1{,}5850}$. Como $1<\log_2 3$, a função $f$ é polinomialmente menor, o que caracteriza o \textbf{Caso 1}. Formalmente, é preciso exibir uma constante $\varepsilon>0$ tal que $f(n)=O\!\left(n^{\log_2 3-\varepsilon}\right)$. Tomando
+\[
+\varepsilon=\log_2 3-1\approx0{,}584963>0,
+\]
+tem-se $n^{\log_2 3-\varepsilon}=n^{1}=n$, e de fato $f(n)=6n-5\le 6n$ para todo $n\ge1$, ou seja, $f(n)=O(n)$. A condição do Caso 1 está satisfeita.
+
+\subsubsection{Complexidade assintótica}
+
+Pelo Caso 1 do Teorema Mestre,
+\[
+\boxed{T(n)=\Theta\!\left(n^{\log_2 3}\right)\approx\Theta\!\left(n^{1{,}5850}\right).}
+\]
+
+\subsubsection{Demonstração por indução}
+
+\begin{proposicao}
+\label{prop:p1}
+Para todo inteiro $k\ge0$, a solução da recorrência~\eqref{eq:rec1} em $n=2^k$ é
+\[
+T(2^k)=\frac{21\cdot3^k-24\cdot2^k+5}{2}.
+\]
+\end{proposicao}
+
+\begin{proof}
+Por indução sobre $k$.
+
+\textbf{Caso base} ($k=0$, isto é, $n=1$). A recorrência dá $T(1)=1$, e a fórmula dá
+\[
+\frac{21\cdot3^0-24\cdot2^0+5}{2}=\frac{21-24+5}{2}=\frac{2}{2}=1.
+\]
+Os dois valores coincidem.
+
+\textbf{Hipótese de indução.} Suponha que, para algum $k\ge0$,
+\[
+T(2^k)=\frac{21\cdot3^k-24\cdot2^k+5}{2}.
+\]
+
+\textbf{Passo indutivo.} Aplicando a recorrência~\eqref{eq:rec1} com $n=2^{k+1}$, cujo metade é $2^k$:
+\begin{align*}
+T(2^{k+1})&=3\,T(2^k)+6\cdot2^{k+1}-5\\
+&=3\cdot\frac{21\cdot3^k-24\cdot2^k+5}{2}+12\cdot2^{k}-5\\
+&=\frac{63\cdot3^k-72\cdot2^k+15}{2}+\frac{24\cdot2^{k}-10}{2}\\
+&=\frac{63\cdot3^k-48\cdot2^k+5}{2}\\
+&=\frac{21\cdot(3\cdot3^k)-24\cdot(2\cdot2^k)+5}{2}\\
+&=\frac{21\cdot3^{k+1}-24\cdot2^{k+1}+5}{2},
+\end{align*}
+que é precisamente a fórmula avaliada em $k+1$.
+
+Pelo princípio da indução matemática, a fórmula vale para todo $k\ge0$.
+\end{proof}
+
+\textbf{Coincidência com o Teorema Mestre.} Substituindo $n=2^k$, tem-se $k=\log_2 n$ e
+\[
+3^k=3^{\log_2 n}=\left(2^{\log_2 3}\right)^{\log_2 n}=n^{\log_2 3},
+\]
+de modo que
+\begin{equation}
+T(n)=\frac{21\,n^{\log_2 3}-24\,n+5}{2}=10{,}5\,n^{\log_2 3}-12\,n+2{,}5.
+\label{eq:fechada1}
+\end{equation}
+O termo dominante é $10{,}5\,n^{\log_2 3}$, e os termos restantes são de ordem estritamente menor, logo $T(n)=\Theta\!\left(n^{\log_2 3}\right)$, exatamente o resultado obtido pelo Teorema Mestre.
+
+\subsection{Problema 2 --- Caso 2: MergeSort ternário}
+
+\subsubsection{Descrição do problema}
+
+Dado um vetor de $n$ elementos, deseja-se ordená-lo em ordem não decrescente. O MergeSort ternário divide o vetor em \emph{três} blocos de aproximadamente $n/3$ elementos cada, ordena os três recursivamente e intercala os três blocos ordenados em uma única passagem, escolhendo a cada passo o menor entre os primeiros elementos ainda não consumidos dos três blocos.
+
+\textbf{Operação elementar contada:} cada posicionamento de um elemento no vetor de saída durante a intercalação. Como a intercalação de três blocos que somam $n$ elementos posiciona exatamente $n$ elementos, independentemente dos valores, a contagem é determinística e depende apenas de $n$.
+
+\subsubsection{A recorrência analisada}
+
+Cada nível da recursão faz três chamadas sobre blocos de tamanho $n/3$ e executa uma intercalação que posiciona $n$ elementos. Um vetor com 0 ou 1 elemento já está ordenado e não gera intercalação. Logo,
+\begin{equation}
+T(1)=T(0)=0,\qquad T(n)=3\,T\!\left(\frac n3\right)+n\quad\text{para }n\ge2.
+\label{eq:rec2}
+\end{equation}
+
+\subsubsection{Valores de $a$, $b$ e $f(n)$, e cálculo de $n^{\log_b a}$}
+
+\[
+a=3,\qquad b=3,\qquad f(n)=n=\Theta(n).
+\]
+\[
+n^{\log_b a}=n^{\log_3 3}=n^{1}=n.
+\]
+
+Note que $a=3\neq2$, conforme exige o enunciado para o Problema 2.
+
+\subsubsection{Enquadramento e justificativa}
+
+Compara-se $f(n)=n$ com $n^{\log_3 3}=n$. As duas funções são iguais, logo em particular
+\[
+f(n)=\Theta\!\left(n^{\log_3 3}\right),
+\]
+com constantes $c_1=c_2=1$ e $n_0=1$, o que caracteriza o \textbf{Caso 2}. Interpretando pela árvore de recursão: no nível $i$ há $3^i$ subproblemas de tamanho $n/3^i$, e o custo de combinação de cada um é $n/3^i$; o custo total do nível é $3^i\cdot(n/3^i)=n$, o mesmo em todos os níveis. Como a árvore tem $\log_3 n$ níveis, o custo total é $n\log_3 n$.
+
+Observe que nem o Caso 1 nem o Caso 3 se aplicam: não existe $\varepsilon>0$ tal que $n=O(n^{1-\varepsilon})$ nem tal que $n=\Omega(n^{1+\varepsilon})$.
+
+\subsubsection{Complexidade assintótica}
+
+Pelo Caso 2 do Teorema Mestre,
+\[
+\boxed{T(n)=\Theta\!\left(n^{\log_3 3}\lg n\right)=\Theta(n\lg n).}
+\]
+A base do logaritmo é irrelevante na notação assintótica, pois $\log_3 n=\lg n/\lg 3$ difere de $\lg n$ apenas por uma constante multiplicativa.
+
+\subsubsection{Demonstração por indução}
+
+\begin{proposicao}
+\label{prop:p2}
+Para todo inteiro $k\ge0$, a solução da recorrência~\eqref{eq:rec2} em $n=3^k$ é
+\[
+T(3^k)=k\cdot3^k,\qquad\text{isto é,}\qquad T(n)=n\log_3 n.
+\]
+\end{proposicao}
+
+\begin{proof}
+Por indução sobre $k$.
+
+\textbf{Caso base} ($k=0$, isto é, $n=1$). A recorrência dá $T(1)=0$, e a fórmula dá $0\cdot3^0=0$. Os dois valores coincidem.
+
+\textbf{Hipótese de indução.} Suponha que, para algum $k\ge0$, valha $T(3^k)=k\cdot3^k$.
+
+\textbf{Passo indutivo.} Aplicando a recorrência~\eqref{eq:rec2} com $n=3^{k+1}$, cujo terço é $3^k$:
+\begin{align*}
+T(3^{k+1})&=3\,T(3^k)+3^{k+1}\\
+&=3\cdot k\cdot3^k+3^{k+1}\\
+&=k\cdot3^{k+1}+3^{k+1}\\
+&=(k+1)\cdot3^{k+1},
+\end{align*}
+que é precisamente a fórmula avaliada em $k+1$.
+
+Pelo princípio da indução matemática, a fórmula vale para todo $k\ge0$. Substituindo $k=\log_3 n$, obtém-se $T(n)=n\log_3 n$.
+\end{proof}
+
+\textbf{Coincidência com o Teorema Mestre.} Como $\log_3 n=\lg n/\lg 3$, tem-se
+\begin{equation}
+T(n)=n\log_3 n=\frac{1}{\lg 3}\,n\lg n\approx0{,}6309\,n\lg n,
+\label{eq:fechada2}
+\end{equation}
+isto é, $T(n)=\Theta(n\lg n)$, exatamente o resultado obtido pelo Teorema Mestre.
+
+\subsection{Problema 3 --- Caso 3: par mais próximo em uma dimensão}
+
+\subsubsection{Descrição do problema}
+
+Dado um vetor $v$ com $n$ números, deseja-se encontrar a menor distância $|v_i-v_j|$ entre dois elementos distintos. A solução analisada é de divisão e conquista com etapa de combinação por força bruta: o vetor é dividido ao meio, a menor distância de cada metade é obtida recursivamente, e a etapa de combinação examina \emph{todos} os pares formados por um elemento da metade esquerda e um da direita, atualizando o mínimo.
+
+Este é deliberadamente um algoritmo ineficiente para o problema --- ordenar o vetor e comparar vizinhos consecutivos resolveria em $\Theta(n\lg n)$. A escolha é intencional: trata-se de um algoritmo recursivo genuíno cuja etapa de combinação é cara o suficiente para dominar as chamadas recursivas, que é precisamente a situação do Caso 3.
+
+\textbf{Operação elementar contada:} cada comparação de distância entre dois elementos na etapa de combinação. A contagem independe dos valores do vetor.
+
+\subsubsection{A recorrência analisada}
+
+Dividindo o intervalo de $n$ elementos em uma metade esquerda com $\lfloor n/2\rfloor$ elementos e uma direita com $\lceil n/2\rceil$, a etapa de combinação examina todos os pares cruzados, ou seja, $\lfloor n/2\rfloor\cdot\lceil n/2\rceil$ pares. Um vetor com um único elemento não contém par algum. A recorrência exata é
+\begin{equation}
+T(1)=0,\qquad T(n)=T\!\left(\left\lfloor\frac n2\right\rfloor\right)+T\!\left(\left\lceil\frac n2\right\rceil\right)+\left\lfloor\frac n2\right\rfloor\cdot\left\lceil\frac n2\right\rceil\quad\text{para }n\ge2,
+\label{eq:rec3}
+\end{equation}
+que, na forma padrão do Teorema Mestre (desprezando pisos e tetos), se escreve
+\begin{equation}
+T(n)=2\,T\!\left(\frac n2\right)+\frac{n^2}{4}.
+\label{eq:rec3b}
+\end{equation}
+
+\subsubsection{Valores de $a$, $b$ e $f(n)$, e cálculo de $n^{\log_b a}$}
+
+\[
+a=2,\qquad b=2,\qquad f(n)=\frac{n^2}{4}=\Theta(n^2).
+\]
+\[
+n^{\log_b a}=n^{\log_2 2}=n^{1}=n.
+\]
+
+\subsubsection{Enquadramento e justificativa}
+
+Compara-se $f(n)=\Theta(n^2)$ com $n^{\log_2 2}=n$. Como $2>1$, a função $f$ é polinomialmente \emph{maior}, o que aponta para o \textbf{Caso 3}. A verificação formal tem duas partes.
+
+\textbf{(i) Crescimento polinomialmente maior.} É preciso exibir $\varepsilon>0$ com $f(n)=\Omega\!\left(n^{1+\varepsilon}\right)$. Tomando $\varepsilon=1$, tem-se $n^{1+\varepsilon}=n^2$ e, de fato, $f(n)=n^2/4\ge\frac14 n^2$ para todo $n\ge1$, ou seja, $f(n)=\Omega(n^2)$.
+
+\textbf{(ii) Condição de regularidade.} É preciso exibir $c<1$ com $a\,f(n/b)\le c\,f(n)$ para todo $n$ suficientemente grande. Calculando:
+\[
+a\,f\!\left(\frac nb\right)=2\cdot\frac{(n/2)^2}{4}=2\cdot\frac{n^2}{16}=\frac{n^2}{8}=\frac12\cdot\frac{n^2}{4}=\frac12\,f(n).
+\]
+A condição vale com $c=\tfrac12<1$ para todo $n\ge1$. Ambas as partes estão satisfeitas, e o Caso 3 se aplica.
+
+Pela árvore de recursão, o custo do nível $i$ é $2^i\cdot\frac{(n/2^i)^2}{4}=\frac{n^2}{4}\cdot\frac{1}{2^i}$: o custo cai pela metade a cada nível descido, e a soma geométrica é dominada pela raiz.
+
+\subsubsection{Complexidade assintótica}
+
+Pelo Caso 3 do Teorema Mestre,
+\[
+\boxed{T(n)=\Theta\big(f(n)\big)=\Theta\!\left(n^2\right).}
+\]
+
+\subsubsection{Demonstração por indução}
+
+Aqui a demonstração usa \emph{indução forte}, porque a recorrência~\eqref{eq:rec3} remete a $\lfloor n/2\rfloor$ e $\lceil n/2\rceil$, e não ao valor imediatamente anterior. Em compensação, o resultado obtido vale para \emph{todo} $n\ge1$, e não apenas para potências de 2.
+
+\begin{proposicao}
+\label{prop:p3}
+Para todo inteiro $n\ge1$, a solução da recorrência~\eqref{eq:rec3} é
+\[
+T(n)=\frac{n(n-1)}{2}=\binom{n}{2}.
+\]
+\end{proposicao}
+
+\begin{proof}
+Por indução forte sobre $n$.
+
+\textbf{Caso base} ($n=1$). A recorrência dá $T(1)=0$, e a fórmula dá $\frac{1\cdot0}{2}=0$. Os dois valores coincidem.
+
+\textbf{Hipótese de indução forte.} Seja $n\ge2$ e suponha que, para \emph{todo} $j$ com $1\le j<n$, valha $T(j)=\frac{j(j-1)}{2}$.
+
+\textbf{Passo indutivo.} Sejam $p=\lfloor n/2\rfloor$ e $q=\lceil n/2\rceil$, de modo que $p+q=n$. Como $n\ge2$, tem-se $1\le p\le q<n$, e a hipótese de indução forte se aplica tanto a $p$ quanto a $q$. Pela recorrência~\eqref{eq:rec3},
+\begin{align*}
+T(n)&=T(p)+T(q)+p\,q\\
+&=\frac{p(p-1)}{2}+\frac{q(q-1)}{2}+pq\\
+&=\frac{p^2-p+q^2-q+2pq}{2}\\
+&=\frac{(p^2+2pq+q^2)-(p+q)}{2}\\
+&=\frac{(p+q)^2-(p+q)}{2}\\
+&=\frac{n^2-n}{2}=\frac{n(n-1)}{2},
+\end{align*}
+que é precisamente a fórmula avaliada em $n$.
+
+Pelo princípio da indução forte, a fórmula vale para todo $n\ge1$.
+\end{proof}
+
+\textbf{Interpretação combinatória.} O resultado $T(n)=\binom n2$ tem uma leitura direta: cada par não ordenado $\{i,j\}$ de posições do vetor é comparado \emph{exatamente uma vez}, no único nível da recursão em que $i$ e $j$ são separados em metades diferentes. O algoritmo, portanto, faz o mesmo trabalho que a força bruta, apenas organizado de forma recursiva --- o que confirma, de modo concreto, a leitura do Caso 3: toda a recursão não compra nenhuma economia, pois o custo está na combinação.
+
+\textbf{Coincidência com o Teorema Mestre.} Expandindo,
+\begin{equation}
+T(n)=\frac{n^2}{2}-\frac n2,
+\label{eq:fechada3}
+\end{equation}
+cujo termo dominante é $n^2/2$; logo $T(n)=\Theta(n^2)$, exatamente o resultado obtido pelo Teorema Mestre.
+
+\section{Resultados Experimentais e Comparação com a Teoria}
+
+Todos os experimentos foram registrados no arquivo \texttt{resultados/resultados.csv}, com uma linha por execução. As tabelas desta seção foram geradas automaticamente a partir desse arquivo. A coluna \emph{Previsto} traz o valor da forma fechada demonstrada na Seção~\ref{sec:teorica}, e a coluna \emph{Dif.} traz a diferença entre o valor medido e o previsto.
+
+\subsection{Problema 1 --- Caso 1: Karatsuba}
+
+\subsubsection{Dados coletados}
+
+\begin{table}[H]
+\centering
+\caption{Problema 1: operações medidas e previstas por $(21\cdot3^k-24\cdot2^k+5)/2$, com $n=2^k$.}
+\label{tab:p1}
+\small
+\input{tabelas/p1.tex}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p1_operacoes.png}
+\caption{Problema 1: pontos medidos sobre a curva teórica da forma fechada~\eqref{eq:fechada1}.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p1_loglog.png}
+\caption{Problema 1 em escala log-log, com as retas de referência $n^{\log_2 3}$ e $n^2$. As duas implementações têm inclinações visivelmente distintas.}
+\end{figure}
+
+\subsubsection{Análise e comparação com a teoria}
+
+A diferença entre medido e previsto é \textbf{zero em todos os doze tamanhos}, incluindo o maior, em que a contagem passa de cinco milhões de operações. A coincidência é exata, e não aproximada, porque o contador mede exatamente a grandeza que a recorrência~\eqref{eq:rec1} descreve: cada operação sobre coeficientes.
+
+A classe assintótica se confirma por dois indicadores independentes da constante multiplicativa:
+
+\begin{itemize}[itemsep=1pt]
+  \item \textbf{Razão de crescimento.} Ao dobrar $n$, a razão $T(2n)/T(n)$ cai monotonicamente de $4{,}9000$ para $3{,}0134$, convergindo para $a=3$. O valor nunca é exatamente 3 porque os termos $-12n+2{,}5$ da forma fechada~\eqref{eq:fechada1} ainda pesam; sua influência relativa decai à medida que $n$ cresce.
+  \item \textbf{Inclinação log-log.} O ajuste por mínimos quadrados sobre os cinco maiores tamanhos dá inclinação $1{,}5980$ para as operações e $1{,}6200$ para os tempos, ambas próximas do expoente teórico $\log_2 3\approx1{,}5850$. O desvio residual é consequência dos termos de menor ordem, que puxam a inclinação para cima nessa faixa de $n$.
+\end{itemize}
+
+\subsubsection{Comparação com o método direto}
+
+A implementação também executou a multiplicação direta, de custo $2n^2$ operações, para servir de referência experimental ao Caso 1.
+
+\begin{table}[H]
+\centering
+\caption{Problema 1: Karatsuba comparado à multiplicação direta.}
+\label{tab:p1comp}
+\small
+\input{tabelas/p1_comp.tex}
+\end{table}
+
+O comportamento é o previsto pela teoria assintótica, com uma ressalva prática importante. Em \emph{número de operações}, o Karatsuba é pior que o método direto para $n\le32$ e só passa a vencer a partir de $n=64$; isso ocorre porque a constante multiplicativa de $10{,}5\,n^{\log_2 3}$ é maior que a de $2n^2$, e a vantagem assintótica leva tempo para compensá-la. Em \emph{tempo de execução}, o ponto de virada é ainda mais tardio: o Karatsuba só fica mais rápido a partir de $n=1024$. A razão é que cada chamada recursiva faz cinco alocações de memória e uma chamada de função, custos reais que o contador de operações não registra. Em $n=2.048$, o Karatsuba faz $4{,}57$ vezes menos operações, mas é apenas $1{,}28$ vez mais rápido.
+
+Esta é a primeira divergência relevante entre teoria e prática observada no trabalho, e ela não contradiz o Teorema Mestre: o teorema descreve o comportamento \emph{assintótico}, e nada afirma sobre a faixa de $n$ em que as constantes dominam.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p1_tempo.png}
+\caption{Problema 1: tempo de execução das duas implementações. O cruzamento das curvas ocorre perto de $n=1024$, bem depois do cruzamento em número de operações.}
+\end{figure}
+
+\subsection{Problema 2 --- Caso 2: MergeSort ternário}
+
+\subsubsection{Dados coletados}
+
+\begin{table}[H]
+\centering
+\caption{Problema 2: operações medidas e previstas por $n\log_3 n$, com $n=3^k$. A coluna \emph{Prev.} traz a razão prevista exatamente por $3(k+1)/k$.}
+\label{tab:p2}
+\small
+\input{tabelas/p2.tex}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p2_operacoes.png}
+\caption{Problema 2: operações medidas sobre a curva $n\log_3 n$, em escala log-log.}
+\end{figure}
+
+\subsubsection{Análise e comparação com a teoria}
+
+Também aqui a diferença entre medido e previsto é \textbf{zero em todos os doze tamanhos}. A correção da ordenação foi verificada a cada execução, percorrendo o vetor resultante.
+
+O Caso 2 tem uma assinatura experimental própria, que o distingue dos outros dois: a razão de crescimento \emph{não} converge para $a=3$ em um valor fixo, mas se aproxima dele por valores maiores, segundo uma lei exata. De fato, para $n=3^k$,
+\[
+\frac{T(3n)}{T(n)}=\frac{(k+1)\,3^{k+1}}{k\,3^k}=3\cdot\frac{k+1}{k}=3+\frac3k.
+\]
+A coluna \emph{Prev.} da Tabela~\ref{tab:p2} traz esse valor, e a concordância com a razão medida é exata em todas as onze transições, até a quarta casa decimal. O excesso $3/k$ sobre o limite 3 é justamente a manifestação do fator logarítmico do Caso 2: ele decai como $1/\lg n$, e não como uma potência de $n$.
+
+Outra forma de ver o mesmo fenômeno é isolar o fator logarítmico. Dividindo as operações medidas por $n$, resta exatamente $\log_3 n$, ou seja, os valores inteiros $1,2,3,\ldots,12$ --- uma reta perfeita quando $n$ é plotado em escala logarítmica.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p2_fator_log.png}
+\caption{Problema 2: dividindo as operações por $n$, resta exatamente $\log_3 n$. A razão medida vale $1{,}000000$ em todos os doze pontos.}
+\end{figure}
+
+A inclinação log-log sobre os cinco maiores tamanhos é $1{,}0921$ para as operações e $1{,}0939$ para os tempos. Esses valores \emph{não} devem ser comparados a 1, e sim à inclinação local da função $n\lg n$, que é
+\[
+\frac{d\ln(n\ln n)}{d\ln n}=1+\frac{1}{\ln n}.
+\]
+Para $n$ entre $19.683$ e $531.441$, isso dá entre $1{,}076$ e $1{,}101$, faixa que contém os dois valores medidos. A curva medida, portanto, é levemente supralinear, exatamente como prevê $\Theta(n\lg n)$, e claramente distinta de uma reta de inclinação 2, que seria o comportamento quadrático.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p2_tempo.png}
+\caption{Problema 2: tempo de execução medido, com reta de referência proporcional a $n\lg n$.}
+\end{figure}
+
+\subsection{Problema 3 --- Caso 3: par mais próximo}
+
+\subsubsection{Dados coletados}
+
+\begin{table}[H]
+\centering
+\caption{Problema 3: comparações medidas e previstas por $n(n-1)/2$.}
+\label{tab:p3}
+\small
+\input{tabelas/p3.tex}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p3_operacoes.png}
+\caption{Problema 3: comparações medidas sobre a curva $n(n-1)/2$.}
+\end{figure}
+
+\subsubsection{Análise e comparação com a teoria}
+
+A diferença entre medido e previsto é \textbf{zero em todos os treze tamanhos}. O maior caso, $n=8.192$, produz $33.550.336$ comparações, valor que coincide dígito a dígito com $\binom{8192}{2}$.
+
+A razão de crescimento converge para $a\cdot b^{\,\varepsilon}=4$, isto é, para o quadrado do fator de divisão, e a convergência é rápida: a razão vale $4{,}0005$ já em $n=8.192$. Isso é consistente com a forma fechada~\eqref{eq:fechada3}, em que o termo de menor ordem é apenas $-n/2$, linear, e portanto desprezível diante de $n^2/2$ bem mais cedo do que no Problema 1. A inclinação log-log sobre os cinco maiores tamanhos é $2{,}0006$ para as operações e $2{,}0254$ para os tempos, contra o valor teórico 2.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p3_loglog.png}
+\caption{Problema 3: verificação de $\Theta(n^2)$ em escala log-log.}
+\end{figure}
+
+Vale destacar o que o Caso 3 significa concretamente neste algoritmo. O custo das chamadas recursivas é assintoticamente irrelevante: toda a complexidade está na etapa de combinação. Isso é confirmado pela interpretação combinatória da Proposição~\ref{prop:p3} --- cada par é comparado exatamente uma vez, e o algoritmo recursivo faz exatamente o mesmo número de comparações que uma varredura por força bruta com dois laços encaixados. A divisão e conquista, neste caso, não produz ganho algum; ela apenas reorganiza o mesmo trabalho.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{../graficos/p3_tempo.png}
+\caption{Problema 3: tempo de execução medido, com reta de referência proporcional a $n^2$.}
+\end{figure}
+
+\subsection{Comparação entre os três casos}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{../graficos/comparacao_casos.png}
+\caption{Os três problemas em escala log-log. A inclinação de cada reta corresponde ao expoente previsto pelo Teorema Mestre: $\approx1{,}585$ no Caso 1, levemente acima de 1 no Caso 2 e 2 no Caso 3.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../graficos/razoes_crescimento.png}
+\caption{Fator de crescimento das operações em cada problema. Em todos, a razão converge monotonicamente para o limite previsto, mas com velocidades bem diferentes.}
+\end{figure}
+
+A comparação entre as três curvas de razão revela uma diferença qualitativa entre os casos que o enunciado do Teorema Mestre já antecipa. Nos Casos 1 e 3, o limite da razão é atingido por convergência rápida, porque os termos de menor ordem são polinomialmente menores que o dominante. No Caso 2, a convergência é lenta: o excesso sobre o limite decai como $3/k=3/\log_3 n$, de modo que mesmo em $n=531.441$ a razão ainda vale $3{,}2727$, longe de 3. Um experimento que olhasse apenas para a razão, sem conhecer a lei $3+3/k$, poderia concluir erroneamente que o limite não é 3.
+
+\subsection{Custo real de cada operação elementar}
+\label{sec:custo_op}
+
+A Tabela~\ref{tab:tempoop} traz o tempo medido dividido pelo número de operações contadas, para o menor tamanho de cada problema e para a faixa dos seis maiores.
+
+\begin{table}[H]
+\centering
+\caption{Nanossegundos por operação elementar: no menor tamanho e na faixa dos seis maiores.}
+\label{tab:tempoop}
+\small
+\input{tabelas/tempo_op.tex}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../graficos/tempo_por_operacao.png}
+\caption{Custo real de cada operação elementar em função de $n$. O modelo teórico supõe esse custo constante; na máquina real ele varia tanto com o algoritmo quanto com o tamanho da entrada.}
+\end{figure}
+
+Os dados mostram que a hipótese de custo uniforme, embutida no Teorema Mestre, é uma simplificação. Três observações:
+
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{O custo por operação difere entre algoritmos.} Uma comparação no Problema 3 custa cerca de $0{,}95$\,ns, enquanto uma operação do Problema 1 custa cerca de $4$\,ns e uma do Problema 2 chega a $8$\,ns. O laço do Problema 3 é um acesso sequencial simples, favorável à \emph{cache} e passível de vetorização pelo compilador; o do Problema 1 envolve recursão e alocações; o do Problema 2 envolve três ponteiros simultâneos e uma cópia de memória adicional.
+  \item \textbf{O custo por operação cresce com $n$ no Problema 2.} Ele sobe de $3{,}5$\,ns em $n=729$ para $8{,}4$\,ns em $n=177.147$. A causa é a hierarquia de memória: quando o vetor e seu auxiliar deixam de caber na \emph{cache}, cada acesso passa a custar mais. Esse efeito explica por que a inclinação log-log dos tempos ($1{,}0939$) é ligeiramente maior que a das operações ($1{,}0921$).
+  \item \textbf{O custo por operação é alto nas entradas pequenas.} Nos menores tamanhos, o valor é de uma a duas ordens de grandeza maior, porque o tempo total é dominado por custos fixos: a chamada ao relógio, a entrada e a saída da função, a alocação inicial. Esses pontos foram, por isso, excluídos dos ajustes de inclinação.
+\end{itemize}
+
+\subsection{Síntese das convergências e divergências}
+
+\begin{table}[H]
+\centering
+\caption{Resumo da comparação entre teoria e experimento.}
+\label{tab:sintese}
+\small
+\begin{tabular}{lccc}
+\toprule
+ & Problema 1 & Problema 2 & Problema 3 \\
+\midrule
+Caso do Teorema Mestre & 1 & 2 & 3 \\
+Complexidade prevista & $\Theta(n^{\log_2 3})$ & $\Theta(n\lg n)$ & $\Theta(n^2)$ \\
+Execuções registradas & 12 & 12 & 13 \\
+Diferença máxima (operações) & 0 & 0 & 0 \\
+Razão medida (maior $n$) & 3,0134 & 3,2727 & 4,0005 \\
+Razão prevista & $\to3$ & $3+3/k$ (exata) & $\to4$ \\
+Inclinação log-log, operações & 1,5980 & 1,0921 & 2,0006 \\
+Inclinação log-log, tempo & 1,6200 & 1,0939 & 2,0254 \\
+Expoente teórico & 1,5850 & $1+1/\ln n$ & 2,0000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Convergências.} Nos três problemas, a contagem de operações coincidiu exatamente com a forma fechada demonstrada por indução, sem nenhuma diferença, em 37 execuções. As taxas de crescimento e as inclinações log-log convergiram para os valores previstos pelo Teorema Mestre, e no Problema 2 a razão medida reproduziu a lei exata $3+3/k$ em todas as transições.
+
+\textbf{Divergências.} Elas aparecem apenas quando se passa das operações para o tempo, e têm três causas identificadas, nenhuma delas um erro do modelo teórico: (i) \emph{constantes multiplicativas}, responsáveis pelo cruzamento tardio entre Karatsuba e método direto; (ii) \emph{operações não contabilizadas}, como alocações e chamadas de função, que pesam no tempo e não no contador; e (iii) \emph{hierarquia de memória}, que faz o custo por operação crescer com $n$ e inflaciona levemente as inclinações medidas sobre os tempos. Todas são consequências do fato de que o Teorema Mestre descreve o número de operações em um modelo de custo uniforme, e não o tempo em uma máquina real.
+
+\section{Conclusão}
+
+\subsection{Resumo dos resultados}
+
+Foram escolhidos, implementados e analisados três algoritmos recursivos, um para cada caso do Teorema Mestre:
+
+\begin{itemize}[itemsep=2pt]
+  \item \textbf{Problema 1, Caso 1:} multiplicação de polinômios por Karatsuba, $T(n)=3T(n/2)+6n-5$, com $a=3$, $b=2$, $f(n)=\Theta(n)$ e $n^{\log_2 3}\approx n^{1{,}5850}$. Como $f(n)=O(n^{\log_2 3-\varepsilon})$ com $\varepsilon=\log_2 3-1$, aplica-se o Caso 1 e $T(n)=\Theta(n^{\log_2 3})$. A indução estabeleceu $T(2^k)=(21\cdot3^k-24\cdot2^k+5)/2$.
+  \item \textbf{Problema 2, Caso 2:} MergeSort ternário, $T(n)=3T(n/3)+n$, com $a=3$, $b=3$, $f(n)=\Theta(n)$ e $n^{\log_3 3}=n$. Como $f(n)=\Theta(n^{\log_3 3})$, aplica-se o Caso 2 e $T(n)=\Theta(n\lg n)$. A indução estabeleceu $T(3^k)=k\cdot3^k$, isto é, $T(n)=n\log_3 n$.
+  \item \textbf{Problema 3, Caso 3:} par mais próximo em 1D com combinação por força bruta, $T(n)=2T(n/2)+n^2/4$, com $a=2$, $b=2$, $f(n)=\Theta(n^2)$ e $n^{\log_2 2}=n$. Como $f(n)=\Omega(n^{1+\varepsilon})$ com $\varepsilon=1$ e a condição de regularidade vale com $c=1/2$, aplica-se o Caso 3 e $T(n)=\Theta(n^2)$. A indução forte estabeleceu $T(n)=n(n-1)/2$, válida para todo $n\ge1$.
+\end{itemize}
+
+As três formas fechadas demonstradas coincidem, em termo dominante, com a complexidade prevista pelo Teorema Mestre, o que cumpre a exigência de que os dois métodos levem ao mesmo resultado.
+
+\subsection{Síntese da comparação entre teoria e prática}
+
+A validação experimental foi conduzida em 37 execuções, com $n$ variando de 2 a 531.441. Em \emph{todas} elas, a diferença entre o número de operações medido e o previsto pela forma fechada foi exatamente zero. As assinaturas assintóticas também se confirmaram: a razão de crescimento convergiu para 3, para $3+3/k$ e para 4, respectivamente, e as inclinações log-log ficaram em $1{,}5980$, $1{,}0921$ e $2{,}0006$, contra os valores teóricos $1{,}5850$, $1+1/\ln n$ e $2$.
+
+As divergências se concentraram nos tempos de execução e foram todas explicadas por fatores externos ao modelo: constantes multiplicativas, operações não contabilizadas pelo contador e efeitos da hierarquia de memória. Nenhuma delas contradiz o Teorema Mestre; elas delimitam o que o teorema afirma e o que não afirma.
+
+\subsection{Principais observações}
+
+\begin{enumerate}[itemsep=3pt]
+  \item \textbf{Cada caso tem uma assinatura experimental distinta.} A razão $T(bn)/T(n)$ converge para $a$ no Caso 1, para $a$ \emph{lentamente} e com excesso $\Theta(1/\lg n)$ no Caso 2, e para $a\cdot b^\varepsilon$ no Caso 3. Observar a razão, e não apenas a curva, foi o indicador mais informativo de todo o trabalho.
+  \item \textbf{A superioridade assintótica demora a se manifestar.} O Karatsuba é $\Theta(n^{1{,}585})$ contra $\Theta(n^2)$ do método direto, mas só passa a fazer menos operações a partir de $n=64$ e só fica mais rápido a partir de $n=1024$. Para entradas pequenas, a constante multiplicativa importa mais que o expoente.
+  \item \textbf{No Caso 3, a recursão pode não trazer ganho algum.} A Proposição~\ref{prop:p3} mostra que o algoritmo do Problema 3 faz exatamente $\binom n2$ comparações, o mesmo que a força bruta. O Caso 3 do Teorema Mestre é, nesse sentido, um alerta de projeto: quando o custo da combinação domina, dividir e conquistar não compra nada.
+  \item \textbf{Contar operações é mais informativo que cronometrar.} Foi a contagem, e não o tempo, que permitiu verificar as formas fechadas dígito a dígito. O tempo serviu a outro propósito: mostrar onde o modelo de custo uniforme se afasta da máquina real.
+  \item \textbf{A hipótese de custo uniforme é a maior simplificação do modelo.} O custo real de uma operação variou de $0{,}91$\,ns a $8{,}4$\,ns entre os algoritmos, e cresceu com $n$ dentro de um mesmo algoritmo.
+\end{enumerate}
+
+\subsection{Limitações encontradas}
+
+Além das limitações metodológicas já discutidas, duas restrições do próprio Teorema Mestre ficaram evidentes. A primeira é que o teorema fornece apenas a classe assintótica: sozinho, ele não permitiria prever nenhum dos valores das tabelas, nem responder em que $n$ o Karatsuba supera o método direto. As formas fechadas obtidas por indução foram necessárias para isso. A segunda é que as formas fechadas exatas dos Problemas 1 e 2 valem apenas para $n$ potência de $b$; para $n$ arbitrário, a recorrência envolve pisos e tetos, e o que permanece válido é a classe assintótica. O Problema 3 é a exceção, pois sua forma fechada foi demonstrada por indução forte para todo $n$.
+
+Por fim, a faixa de tamanhos foi limitada pelo custo computacional, sobretudo no Problema 3, cujo custo quadrático impediu ir além de $n=8.192$ em tempo razoável.
+
+\subsection{Considerações adicionais}
+
+Dois pontos merecem registro e não couberam na seção de comparação.
+
+O primeiro é que a escolha da \emph{operação elementar} a contar não é neutra, e foi decisiva para a qualidade dos resultados. Nos três problemas, ela foi definida de modo a não depender dos valores da entrada, apenas do seu tamanho. Se, no Problema 2, tivéssemos contado \emph{comparações} entre elementos em vez de \emph{posicionamentos}, a contagem passaria a depender da ordem dos dados, e a coincidência exata com $n\log_3 n$ daria lugar a uma faixa de valores entre um melhor e um pior caso. A exatidão observada é, em parte, consequência dessa escolha de instrumentação.
+
+O segundo é que os três problemas ilustram usos muito diferentes da divisão e conquista. No Caso 1, ela é a fonte do ganho: reduzir de quatro para três subproblemas é exatamente o que baixa o expoente de 2 para $\log_2 3$. No Caso 2, ela equilibra o trabalho entre os níveis, e o preço do balanceamento é o fator logarítmico. No Caso 3, ela é inócua. A posição de um algoritmo entre os três casos é, portanto, menos uma classificação matemática do que um diagnóstico sobre onde está o seu gargalo --- e, consequentemente, sobre onde faz sentido tentar otimizá-lo.
+
+\appendix
+\section{Código-fonte}
+
+Todos os arquivos abaixo foram compilados com
+\begin{lstlisting}[style=cmd]
+gcc -O2 -Wall -Wextra -std=c99 -o experimentos src/main.c src/comum.c \
+    src/problema1.c src/problema2.c src/problema3.c -lm
+\end{lstlisting}
+e executados com \texttt{./experimentos resultados/resultados.csv 15}.
+
+\subsection*{src/comum.h}
+\lstinputlisting{../src/comum.h}
+\subsection*{src/comum.c}
+\lstinputlisting{../src/comum.c}
+\subsection*{src/problema1.c --- Caso 1}
+\lstinputlisting{../src/problema1.c}
+\subsection*{src/problema2.c --- Caso 2}
+\lstinputlisting{../src/problema2.c}
+\subsection*{src/problema3.c --- Caso 3}
+\lstinputlisting{../src/problema3.c}
+\subsection*{src/main.c --- execução dos experimentos}
+\lstinputlisting{../src/main.c}
+
+\section{Arquivo de resultados}
+
+Todas as execuções foram registradas no arquivo \texttt{resultados/resultados.csv}, cujo conteúdo é reproduzido a seguir.
+
+\lstinputlisting[style=cmd, basicstyle=\ttfamily\tiny]{../resultados/resultados.csv}
+
+\end{document}
